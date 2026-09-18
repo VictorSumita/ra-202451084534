@@ -1,0 +1,45 @@
+using ApiVazada.Data;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
+using System.Security.Claims;
+
+namespace ApiVazada.Controllers;
+
+[ApiController]
+[Route("api/[controller]")]
+public class UsuariosController : ControllerBase
+{
+    private readonly AppDbContext _db;
+
+    public UsuariosController(AppDbContext db) => _db = db;
+
+    private int UsuarioLogadoId =>
+        int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+
+    [Authorize]
+    [HttpGet("{id}")]
+    public IActionResult GetById(int id)
+    {
+        var usuario = _db.Usuarios.Find(id);
+        if (usuario is null) return NotFound();
+        return Ok(new { usuario.Id, usuario.Nome, usuario.Email, usuario.Role });
+    }
+
+    [Authorize]
+    [HttpPut("{id}")]
+    public IActionResult Atualizar(int id, [FromBody] AtualizarUsuarioRequest dto)
+    {
+        var usuario = _db.Usuarios.Find(id);
+        if (usuario is null) return NotFound();
+        if (usuario.Id != UsuarioLogadoId) return Forbid();
+
+        usuario.Nome = dto.Nome;
+        usuario.Email = dto.Email;
+        // Role NÃO é tocada: mudar papel é operação administrativa.
+
+        _db.SaveChanges();
+        return Ok(new { usuario.Id, usuario.Nome, usuario.Email, usuario.Role });
+    }
+}
+
+public record AtualizarUsuarioRequest(string Nome, string Email);
